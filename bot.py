@@ -10,14 +10,14 @@ from yandex_music import Client
 from urllib.parse import urlparse
 
 
-yam_token = 'YANDEX-MUSIC-TOKEN'
+yam_token = 'YANDEX_MUSIC_TOKEN'
 client = Client(yam_token).init()
-BOT_TOKEN = 'BOT-TOKEN'
+BOT_TOKEN = 'BOT_TOKEN'
 logging.basicConfig(level=logging.INFO)
 
 
 def init_db():
-    with sqlite3.connect("history.db") as conn:
+    with sqlite3.connect("history.db", check_same_thread=False) as conn:
         c = conn.cursor()
         c.execute('''
             CREATE TABLE IF NOT EXISTS history (
@@ -36,21 +36,21 @@ init_db()
 
 
 def add_to_history(user_id, media_type, title, url):
-    with sqlite3.connect("history.db") as conn:
+    with sqlite3.connect("history.db", check_same_thread=False) as conn:
         c = conn.cursor()
         c.execute("INSERT INTO history (user_id, type, title, url) VALUES (?, ?, ?, ?)",
                   (user_id, media_type, title, url))
         conn.commit()
 
 def get_history(user_id):
-    with sqlite3.connect("history.db") as conn:
+    with sqlite3.connect("history.db", check_same_thread=False) as conn:
         c = conn.cursor()
         c.execute("SELECT id, title, url, type, pinned FROM history WHERE user_id=? ORDER BY pinned DESC, id DESC LIMIT 10",
                   (user_id,))
         return c.fetchall()
 
 def pin_item(item_id):
-    with sqlite3.connect("history.db") as conn:
+    with sqlite3.connect("history.db", check_same_thread=False) as conn:
         c = conn.cursor()
         c.execute("UPDATE history SET pinned=1 WHERE id=?", (item_id,))
         conn.commit()
@@ -68,7 +68,7 @@ async def video(update, context):
     if "tiktok.com" in url:
         try:
             api_url = f"https://tikwm.com/api/?url={url}"
-            response = requests.get(api_url).json()
+            response = requests.get(api_url, timeout=15).json()
 
             if response.get("data") and response["data"].get("play"):
                 await message.reply_text("Скачиваю видео")
@@ -114,12 +114,12 @@ async def music(update, context):
         try:
             await message.reply_text("Скачиваю трек")
             path = urlparse(url).path
-            parts = path.split('/')
-            track_id = parts[-1]
-            track = client.tracks([track_id])[0]
+            parts = url.split('/')
+            track_id = parts[-1].split('?')
+            track = client.tracks([track_id[0]])[0]
             best = track.get_download_info()[0]
             download_url = best.get_direct_link()
-            r = requests.get(download_url)
+            r = requests.get(download_url, timeout=30)
             with open(f'{track.title}.mp3', 'wb') as f:
                 f.write(r.content)
             track.download_cover(f'{track.title}.png')
@@ -149,15 +149,13 @@ async def history(update, context):
         callback_data = f"resend|{title}"
         pin_data = f"pin|{item_id}"
         buttons.append([
-            #InlineKeyboardButton(text=title, callback_data=callback_data),
-            #InlineKeyboardButton(text="📌", callback_data=pin_data)
+
             InlineKeyboardButton(text=title, callback_data=callback_data),
             InlineKeyboardButton(text="📌", callback_data=pin_data) if pinned else InlineKeyboardButton(text="Закрепить", callback_data=pin_data)
         ])
 
     markup = InlineKeyboardMarkup(buttons)
     await update.message.reply_text("Ваша история:", reply_markup=markup)
-    #await   update.message.reply_text(data)
 
 
 async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -169,7 +167,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if "resend|" in data:
         kal, title = data.split("|")
-        with sqlite3.connect("history.db") as conn:
+        with sqlite3.connect("history.db", check_same_thread=False) as conn:
             c = conn.cursor()
             c.execute("SELECT url, type FROM history WHERE title=?",
                   (title,))
@@ -181,7 +179,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await music(update, context)
     else:
         kal, qid = data.split("|")
-        with sqlite3.connect("history.db") as conn:
+        with sqlite3.connect("history.db", check_same_thread=False) as conn:
             c = conn.cursor()
             c.execute("UPDATE history SET pinned = (pinned + 1) % 2 WHERE id=?",
                       (qid,))
@@ -207,4 +205,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
