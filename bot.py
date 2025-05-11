@@ -56,9 +56,7 @@ def pin_item(item_id):
         conn.commit()
 
 async def start(update, context):
-    #await update.message.reply_text("Привет! Отправь мне ссылку, и я пришлю тебе видео.")
-    await update.message.reply_text("Вы подписались на бота! Новые сообщения скоро будут, оставайтесь на связи!")
-    await update.message.reply_text("Чтобы отписаться, напишите в этот чат «/stop» или «/unsubscribe».")
+    await update.message.reply_text("Привет! Отправь мне ссылку на видео из Tiktok/Youtube или ссылку на песню из Yandex music и я скину их файлом!")
 
 
 async def video(update, context):
